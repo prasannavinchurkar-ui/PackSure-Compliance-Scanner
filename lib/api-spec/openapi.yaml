@@ -238,6 +238,20 @@ components:
           type: ["string", "null"]
         netQuantity:
           type: ["string", "null"]
+        mrp:
+          type: ["string", "null"]
+        packedDate:
+          type: ["string", "null"]
+        consumerCare:
+          type: ["string", "null"]
+        countryOfOrigin:
+          type: ["string", "null"]
+        barcodeValue:
+          type: ["string", "null"]
+        barcodeFormat:
+          type: ["string", "null"]
+        barcodeSource:
+          type: ["string", "null"]
         category:
           type: string
         imageName:
@@ -256,7 +270,7 @@ components:
           format: date-time
         inspector:
           type: string
-      required: [id, productName, brand, manufacturer, netQuantity, category, imageName, status, riskScore, issueCount, topIssue, scannedAt, inspector]
+      required: [id, productName, brand, manufacturer, netQuantity, mrp, packedDate, consumerCare, countryOfOrigin, barcodeValue, barcodeFormat, barcodeSource, category, imageName, status, riskScore, issueCount, topIssue, scannedAt, inspector]
     ScanDetail:
       allOf:
         - $ref: "#/components/schemas/Scan"
@@ -283,6 +297,20 @@ components:
         manufacturer:
           type: ["string", "null"]
         netQuantity:
+          type: ["string", "null"]
+        mrp:
+          type: ["string", "null"]
+        packedDate:
+          type: ["string", "null"]
+        consumerCare:
+          type: ["string", "null"]
+        countryOfOrigin:
+          type: ["string", "null"]
+        barcodeValue:
+          type: ["string", "null"]
+        barcodeFormat:
+          type: ["string", "null"]
+        barcodeSource:
           type: ["string", "null"]
         category:
           type: string

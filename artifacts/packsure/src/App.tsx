@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type FormEvent } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -226,7 +226,13 @@ type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => Barc
 
 const barcodeFormatLabel = (format?: string) => format ? format.replaceAll('_', ' ').toUpperCase() : 'Detected barcode';
 
-function BarcodeLookupPanel({ onProductFound }: { onProductFound: (product: BarcodeProduct) => void }) {
+function BarcodeLookupPanel({
+  onBarcodeCaptured,
+  onProductFound,
+}: {
+  onBarcodeCaptured: (value: string, format: string) => void;
+  onProductFound: (product: BarcodeProduct, metadata: { rawValue: string; format: string; source: string }) => void;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const frameRef = useRef<number | null>(null);
@@ -255,7 +261,13 @@ function BarcodeLookupPanel({ onProductFound }: { onProductFound: (product: Barc
   }, []);
 
   useEffect(() => {
-    if (barcodeQuery.data?.found && barcodeQuery.data.product) onProductFound(barcodeQuery.data.product);
+    if (barcodeQuery.data?.found && barcodeQuery.data.product) {
+      onProductFound(barcodeQuery.data.product, {
+        rawValue: barcodeQuery.data.rawValue,
+        format: barcodeQuery.data.format,
+        source: barcodeQuery.data.product.source,
+      });
+    }
   }, [barcodeQuery.data, onProductFound]);
 
   const acceptBarcode = (value: string, format?: string) => {
@@ -265,6 +277,7 @@ function BarcodeLookupPanel({ onProductFound }: { onProductFound: (product: Barc
     setDraftBarcode(trimmed);
     setDetectedFormat(format || 'manual entry');
     setCameraError('');
+    onBarcodeCaptured(trimmed, format || 'manual entry');
   };
 
   const startCamera = async () => {
@@ -354,15 +367,78 @@ function ScanPage() {
   const [brand, setBrand] = useState('');
   const [manufacturer, setManufacturer] = useState('');
   const [netQuantity, setNetQuantity] = useState('');
+  const [mrp, setMrp] = useState('');
+  const [packedDate, setPackedDate] = useState('');
+  const [consumerCare, setConsumerCare] = useState('');
+  const [countryOfOrigin, setCountryOfOrigin] = useState('');
+  const [barcodeValue, setBarcodeValue] = useState('');
+  const [barcodeFormat, setBarcodeFormat] = useState('');
+  const [barcodeSource, setBarcodeSource] = useState('');
   const [category, setCategory] = useState('Packaged commodity');
   const [error, setError] = useState('');
-  const onSubmit = (event: FormEvent) => { event.preventDefault(); if (!productName.trim() || !brand.trim()) { setError('Add the product name and brand before starting the analysis.'); return; } setError(''); create.mutate({ data: { productName: productName.trim(), brand: brand.trim(), manufacturer: manufacturer.trim() || null, netQuantity: netQuantity.trim() || null, category, imageName: fileName || null } }, { onSuccess: detail => { queryClient.invalidateQueries({ queryKey: getListScansQueryKey() }); queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); queryClient.invalidateQueries({ queryKey: getGetRecentActivityQueryKey() }); setLocation(`/scans/${detail.id}`); }, onError: () => setError('Analysis could not be completed. Confirm the package details and try again.') }); };
+  const handleBarcodeCaptured = useCallback((value: string, format: string) => {
+    setBarcodeValue(value);
+    setBarcodeFormat(format);
+    setBarcodeSource('');
+    setProductName('');
+    setBrand('');
+    setManufacturer('');
+    setNetQuantity('');
+    setMrp('');
+    setPackedDate('');
+    setConsumerCare('');
+    setCountryOfOrigin('');
+    setCategory('Packaged commodity');
+  }, []);
+  const handleProductFound = useCallback((product: BarcodeProduct, metadata: { rawValue: string; format: string; source: string }) => {
+    setBarcodeValue(metadata.rawValue);
+    setBarcodeFormat(metadata.format);
+    setBarcodeSource(metadata.source);
+    setProductName(product.productName ?? '');
+    setBrand(product.brand ?? '');
+    setManufacturer(product.manufacturer ?? '');
+    setNetQuantity(product.netQuantity ?? '');
+    if (product.category) setCategory(product.category);
+  }, []);
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!productName.trim() || !brand.trim()) {
+      setError('Add the product name and brand before starting the analysis.');
+      return;
+    }
+    setError('');
+    create.mutate({
+      data: {
+        productName: productName.trim(),
+        brand: brand.trim(),
+        manufacturer: manufacturer.trim() || null,
+        netQuantity: netQuantity.trim() || null,
+        mrp: mrp.trim() || null,
+        packedDate: packedDate.trim() || null,
+        consumerCare: consumerCare.trim() || null,
+        countryOfOrigin: countryOfOrigin.trim() || null,
+        barcodeValue: barcodeValue.trim() || null,
+        barcodeFormat: barcodeFormat.trim() || null,
+        barcodeSource: barcodeSource.trim() || null,
+        category,
+        imageName: fileName || null,
+      },
+    }, {
+      onSuccess: detail => {
+        queryClient.invalidateQueries({ queryKey: getListScansQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetRecentActivityQueryKey() });
+        setLocation(`/scans/${detail.id}`);
+      },
+      onError: () => setError('Analysis could not be completed. Confirm the package details and try again.'),
+    });
+  };
   return <div className="reveal"><PageHeading eyebrow="Evidence intake / New scan" title="Turn a package into a decision." detail="Scan the barcode first, enrich it from the product database, then upload the principal display panel for Legal Metrology analysis." />
     <div className="grid gap-6 xl:grid-cols-[1.06fr_.94fr]"><form onSubmit={onSubmit} className="rounded-2xl border border-border bg-card p-5 sm:p-7">
        <div className="mb-6 flex items-center justify-between"><div><h2 className="font-display text-lg font-semibold">Package evidence</h2><p className="mt-1 text-sm text-muted-foreground">Capture the identifier, then verify the declarations.</p></div><span className="font-mono-ui text-[10px] uppercase tracking-wider text-muted-foreground">Step 01 / 02</span></div>
       <label htmlFor="package-image" data-testid="dropzone-package-image" className={`group relative flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors ${fileName ? 'border-[hsl(162_38%_58%)] bg-[hsl(162_38%_95%)]' : 'border-[hsl(var(--accent)/.7)] bg-[hsl(var(--accent)/.08)] hover:bg-[hsl(var(--accent)/.15)]'}`}><input id="package-image" data-testid="input-package-image" type="file" accept="image/*" className="sr-only" onChange={event => setFileName(event.target.files?.[0]?.name ?? '')} />{fileName ? <><span className="grid h-12 w-12 place-items-center rounded-full bg-[hsl(162_38%_88%)] text-[hsl(162_42%_27%)]"><Check className="h-6 w-6" /></span><strong className="mt-4 text-sm">{fileName}</strong><span className="mt-1 text-xs text-muted-foreground">Ready for analysis · Choose another image</span></> : <><span className="grid h-12 w-12 place-items-center rounded-full bg-card text-primary shadow-sm"><CloudUpload className="h-6 w-6" /></span><strong className="mt-4 text-sm">Drop package image here</strong><span className="mt-1 text-xs text-muted-foreground">or browse from this device · JPG, PNG up to 10 MB</span></>}</label>
-       <BarcodeLookupPanel onProductFound={product => { if (product.productName) setProductName(product.productName); if (product.brand) setBrand(product.brand); if (product.manufacturer) setManufacturer(product.manufacturer); if (product.netQuantity) setNetQuantity(product.netQuantity); if (product.category) setCategory(product.category); }} />
-       <div className="mt-7 grid gap-4 sm:grid-cols-2"><Field id="product-name" label="Product name" value={productName} onChange={setProductName} placeholder="Filled from database when available" /><Field id="brand-name" label="Brand" value={brand} onChange={setBrand} placeholder="Filled from database when available" /><Field id="manufacturer-name" label="Manufacturer / packer" value={manufacturer} onChange={setManufacturer} placeholder="e.g. Annapurna Foods Pvt. Ltd." /><Field id="net-quantity" label="Net quantity" value={netQuantity} onChange={setNetQuantity} placeholder="e.g. 500 g" /><label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-foreground">Commodity category</span><select data-testid="select-category" value={category} onChange={e => setCategory(e.target.value)} className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-[hsl(var(--accent))] focus:ring-2 focus:ring-[hsl(var(--accent)/.25)]"><option>Packaged commodity</option><option>Food and beverage</option><option>Personal care</option><option>Household goods</option><option>Electrical goods</option></select></label></div>
+       <BarcodeLookupPanel onBarcodeCaptured={handleBarcodeCaptured} onProductFound={handleProductFound} />
+        <div className="mt-7 grid gap-4 sm:grid-cols-2"><Field id="product-name" label="Product name" value={productName} onChange={setProductName} placeholder="Filled from database when available" /><Field id="brand-name" label="Brand" value={brand} onChange={setBrand} placeholder="Filled from database when available" /><Field id="manufacturer-name" label="Manufacturer / packer" value={manufacturer} onChange={setManufacturer} placeholder="Enter exactly as printed on the package" /><Field id="net-quantity" label="Net quantity" value={netQuantity} onChange={setNetQuantity} placeholder="e.g. 500 g" /><Field id="mrp" label="Maximum retail price" value={mrp} onChange={setMrp} placeholder="e.g. ₹185 incl. of all taxes" /><Field id="packed-date" label="Month & year" value={packedDate} onChange={setPackedDate} placeholder="e.g. Packed: 06/2026" /><Field id="consumer-care" label="Consumer care" value={consumerCare} onChange={setConsumerCare} placeholder="Phone, email, or address as printed" /><Field id="country-of-origin" label="Country of origin" value={countryOfOrigin} onChange={setCountryOfOrigin} placeholder="e.g. Made in India" /><label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-foreground">Commodity category</span><select data-testid="select-category" value={category} onChange={e => setCategory(e.target.value)} className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-[hsl(var(--accent))] focus:ring-2 focus:ring-[hsl(var(--accent)/.25)]"><option>Packaged commodity</option><option>Food and beverage</option><option>Personal care</option><option>Household goods</option><option>Electrical goods</option></select></label></div>
       {error && <div data-testid="status-scan-error" className="mt-5 flex items-start gap-2 rounded-lg border border-[hsl(2_48%_80%)] bg-[hsl(2_67%_97%)] p-3 text-sm text-[hsl(2_54%_39%)]"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       <button data-testid="button-start-analysis" type="submit" disabled={create.isPending} className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-wait disabled:opacity-70">{create.isPending ? <><Loader2 className="h-4 w-4 animate-spin" />Reading package evidence…</> : <><Sparkles className="h-4 w-4 text-[hsl(var(--accent))]" />Start compliance analysis <ChevronRight className="h-4 w-4" /></>}</button>
     </form>

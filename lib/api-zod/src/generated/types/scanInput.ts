@@ -15,6 +15,20 @@ export interface ScanInput {
   manufacturer?: string | null;
   /** @nullable */
   netQuantity?: string | null;
+  /** @nullable */
+  mrp?: string | null;
+  /** @nullable */
+  packedDate?: string | null;
+  /** @nullable */
+  consumerCare?: string | null;
+  /** @nullable */
+  countryOfOrigin?: string | null;
+  /** @nullable */
+  barcodeValue?: string | null;
+  /** @nullable */
+  barcodeFormat?: string | null;
+  /** @nullable */
+  barcodeSource?: string | null;
   /** @minLength 1 */
   category: string;
   /** @nullable */

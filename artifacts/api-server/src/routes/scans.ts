@@ -31,75 +31,71 @@ type Finding = {
   status: "open" | "resolved";
 };
 
-const declarationsFor = (variant: "compliant" | "review" | "violation"): Declaration[] => [
-  {
-    key: "manufacturer",
-    label: "Manufacturer / Packer",
-    value: "Kaveri Foods Pvt. Ltd., Bengaluru, Karnataka",
-    status: "passed",
-    confidence: 98,
-    requirement: "Rule 6(1)(a)",
-  },
-  {
-    key: "netQuantity",
-    label: "Net quantity",
-    value: variant === "violation" ? "500 g" : "500 g",
-    status: "passed",
-    confidence: 99,
-    requirement: "Rule 6(1)(d)",
-  },
-  {
-    key: "mrp",
-    label: "Maximum Retail Price",
-    value: variant === "violation" ? "MRP ₹185 (incl. of all taxes)" : "MRP ₹185 (incl. of all taxes)",
-    status: variant === "violation" ? "warning" : "passed",
-    confidence: 96,
-    requirement: "Rule 6(1)(e)",
-  },
-  {
-    key: "date",
-    label: "Month & year",
-    value: "Packed: 06/2026",
-    status: "passed",
-    confidence: 97,
-    requirement: "Rule 6(1)(d)",
-  },
-  {
-    key: "consumerCare",
-    label: "Consumer care",
-    value: "1800 123 4567 · care@kaverifoods.in",
-    status: variant === "violation" ? "failed" : "warning",
-    confidence: 91,
-    requirement: "Rule 6(1)(f)",
-  },
-  {
-    key: "country",
-    label: "Country of origin",
-    value: "Made in India",
-    status: "passed",
-    confidence: 99,
-    requirement: "Rule 6(1)(aa)",
-  },
+type DeclarationValues = {
+  manufacturer?: string | null;
+  netQuantity?: string | null;
+  mrp?: string | null;
+  packedDate?: string | null;
+  consumerCare?: string | null;
+  countryOfOrigin?: string | null;
+};
+
+const normalizedValue = (value?: string | null): string | null => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
+
+const declarationFor = (
+  key: string,
+  label: string,
+  value: string | null | undefined,
+  requirement: string,
+  missingStatus: "warning" | "failed" = "warning",
+): Declaration => {
+  const actualValue = normalizedValue(value);
+  return {
+    key,
+    label,
+    value: actualValue ?? "Not detected",
+    status: actualValue ? "passed" : missingStatus,
+    confidence: actualValue ? 98 : 0,
+    requirement,
+  };
+};
+
+const declarationsFor = (variant: "compliant" | "review" | "violation", values: DeclarationValues): Declaration[] => [
+  declarationFor("manufacturer", "Manufacturer / Packer", values.manufacturer, "Rule 6(1)(a)"),
+  declarationFor("netQuantity", "Net quantity", values.netQuantity, "Rule 6(1)(d)"),
+  declarationFor("mrp", "Maximum Retail Price", values.mrp, "Rule 6(1)(e)", variant === "violation" ? "failed" : "warning"),
+  declarationFor("date", "Month & year", values.packedDate, "Rule 6(1)(d)"),
+  declarationFor("consumerCare", "Consumer care", values.consumerCare, "Rule 6(1)(f)", variant === "violation" ? "failed" : "warning"),
+  declarationFor("country", "Country of origin", values.countryOfOrigin, "Rule 6(1)(aa)"),
 ];
 
-const findingsFor = (variant: "compliant" | "review" | "violation"): Finding[] => {
+const findingsFor = (variant: "compliant" | "review" | "violation", values: DeclarationValues): Finding[] => {
   if (variant === "compliant") return [];
+  const hasConsumerCare = Boolean(normalizedValue(values.consumerCare));
   const findings: Finding[] = [
     {
       id: 1,
       severity: "major",
-      title: "Consumer care declaration is incomplete",
-      detail: "A phone number is present, but the responsible contact address is not clearly linked to the declaration.",
+      title: hasConsumerCare ? "Consumer care declaration requires verification" : "Consumer care declaration is missing",
+      detail: hasConsumerCare
+        ? "Verify the supplied contact details against the package evidence before closing this finding."
+        : "No consumer care contact was supplied for this inspection. Verify the package evidence or enter the declaration manually.",
       rule: "Rule 6(1)(f) · Consumer care details",
       status: "open",
     },
   ];
   if (variant === "violation") {
+    const hasMrp = Boolean(normalizedValue(values.mrp));
     findings.unshift({
       id: 2,
       severity: "critical",
-      title: "MRP statement may be misleading",
-      detail: "The inclusive-tax qualifier is not legible at the required minimum character height in the uploaded evidence.",
+      title: hasMrp ? "MRP statement requires verification" : "MRP declaration is missing",
+      detail: hasMrp
+        ? "Verify the supplied MRP and inclusive-tax qualifier against the package evidence."
+        : "No MRP value was supplied for this inspection. Verify the package evidence or enter the declaration manually.",
       rule: "Rule 6(1)(e) · MRP declaration",
       status: "open",
     });
@@ -120,6 +116,13 @@ const publicScan = (scan: Scan) => ({
   brand: scan.brand,
   manufacturer: scan.manufacturer,
   netQuantity: scan.netQuantity,
+  mrp: scan.mrp,
+  packedDate: scan.packedDate,
+  consumerCare: scan.consumerCare,
+  countryOfOrigin: scan.countryOfOrigin,
+  barcodeValue: scan.barcodeValue,
+  barcodeFormat: scan.barcodeFormat,
+  barcodeSource: scan.barcodeSource,
   category: scan.category,
   imageName: scan.imageName,
   status: scan.status as "compliant" | "review" | "violation",
@@ -143,17 +146,6 @@ type BarcodeProduct = {
   brand: string | null;
   category: string | null;
   source: string;
-};
-
-const barcodeCatalog: Record<string, BarcodeProduct> = {
-  "8901234567890": {
-    productName: "Organic Basmati Rice",
-    manufacturer: "Kaveri Foods Pvt. Ltd., Bengaluru, Karnataka",
-    netQuantity: "500 g",
-    brand: "EarthBasket",
-    category: "Staples",
-    source: "PackSure reference catalog",
-  },
 };
 
 const barcodeFormat = (value: string): string => {
@@ -195,7 +187,7 @@ const productFromOpenFoodFacts = async (value: string): Promise<BarcodeProduct |
     const product = body.product;
     return {
       productName: product.product_name?.trim() || null,
-      manufacturer: product.manufacturing_places?.trim() || product.manufacturers?.trim() || null,
+      manufacturer: product.manufacturers?.trim() || product.manufacturing_places?.trim() || null,
       netQuantity: product.quantity?.trim() || null,
       brand: product.brands?.split(",")[0]?.trim() || null,
       category: product.categories?.split(",")[0]?.trim() || null,
@@ -217,8 +209,8 @@ const seedScans = [
     issueCount: 0,
     topIssue: null,
     inspector: "Aarav Mehta",
-    declarations: declarationsFor("compliant"),
-    findings: findingsFor("compliant"),
+    declarations: declarationsFor("compliant", {}),
+    findings: findingsFor("compliant", {}),
   },
   {
     productName: "Classic Masala Tea",
@@ -228,10 +220,10 @@ const seedScans = [
     status: "review",
     riskScore: 42,
     issueCount: 1,
-    topIssue: "Consumer care declaration is incomplete",
+    topIssue: "Consumer care declaration is missing",
     inspector: "Aarav Mehta",
-    declarations: declarationsFor("review"),
-    findings: findingsFor("review"),
+    declarations: declarationsFor("review", {}),
+    findings: findingsFor("review", {}),
   },
   {
     productName: "Crispy Millet Snacks",
@@ -241,10 +233,10 @@ const seedScans = [
     status: "violation",
     riskScore: 78,
     issueCount: 2,
-    topIssue: "MRP statement may be misleading",
+    topIssue: "MRP declaration is missing",
     inspector: "Meera Iyer",
-    declarations: declarationsFor("violation"),
-    findings: findingsFor("violation"),
+    declarations: declarationsFor("violation", {}),
+    findings: findingsFor("violation", {}),
   },
   {
     productName: "Neem & Aloe Bath Soap",
@@ -254,10 +246,10 @@ const seedScans = [
     status: "violation",
     riskScore: 66,
     issueCount: 2,
-    topIssue: "MRP statement may be misleading",
+    topIssue: "MRP declaration is missing",
     inspector: "Meera Iyer",
-    declarations: declarationsFor("violation"),
-    findings: findingsFor("violation"),
+    declarations: declarationsFor("violation", {}),
+    findings: findingsFor("violation", {}),
   },
   {
     productName: "Toor Dal Premium",
@@ -267,10 +259,10 @@ const seedScans = [
     status: "review",
     riskScore: 31,
     issueCount: 1,
-    topIssue: "Consumer care declaration is incomplete",
+    topIssue: "Consumer care declaration is missing",
     inspector: "Aarav Mehta",
-    declarations: declarationsFor("review"),
-    findings: findingsFor("review"),
+    declarations: declarationsFor("review", {}),
+    findings: findingsFor("review", {}),
   },
 ];
 
@@ -338,7 +330,7 @@ router.get("/barcodes/:value", async (req, res): Promise<void> => {
     return;
   }
 
-  const product = barcodeCatalog[normalizedValue] ?? await productFromOpenFoodFacts(normalizedValue);
+  const product = await productFromOpenFoodFacts(normalizedValue);
   res.json(LookupBarcodeResponse.parse({
     rawValue,
     normalizedValue,
@@ -382,7 +374,7 @@ router.post("/scans", async (req, res): Promise<void> => {
     return;
   }
   const variant = variantFor(parsed.data.productName);
-  const findings = findingsFor(variant);
+  const findings = findingsFor(variant, parsed.data);
   const [created] = await db.insert(scansTable).values({
     ...parsed.data,
     status: variant,
@@ -390,7 +382,7 @@ router.post("/scans", async (req, res): Promise<void> => {
     issueCount: findings.length,
     topIssue: findings[0]?.title ?? null,
     inspector: "Aarav Mehta",
-    declarations: declarationsFor(variant),
+    declarations: declarationsFor(variant, parsed.data),
     findings,
   }).returning();
   res.status(201).json(CreateScanResponse.parse(detailScan(created)));
