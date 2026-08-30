@@ -1,0 +1,45 @@
+Please debug the QR/AR data flow in this manufacturing project.
+
+The expected behavior is:
+
+1. Each manufacturing product has a unique QR code.
+2. When the QR code is scanned, the application should extract the unique QR/code value.
+3. That code should be sent to the backend.
+4. The backend should query the database using that exact code.
+5. The database should return the correct company name, brand name, and other product/manufacturing information associated with that QR code.
+6. The AR interface should then display the data returned for THAT specific QR code.
+
+Current problem:
+
+* QR codes are not producing the correct company/brand information.
+* We have tested 2–3 different projects/products, but the AR result keeps showing the same company name for all of them.
+* We also tried manually entering the QR/code instead of scanning it, but the result is still incorrect.
+* This suggests the issue may be somewhere in the QR → frontend → backend → database lookup → API response → AR display flow, rather than only the QR scanner.
+
+DO NOT make major changes yet.
+
+First investigate the existing implementation and identify exactly where the data becomes incorrect.
+
+Please trace one QR code end-to-end and report:
+
+1. What value is actually obtained from the QR scanner/manual input?
+2. What value is sent from the frontend to the backend?
+3. Which backend API/route handles the lookup?
+4. What database query is being executed?
+5. What database record is returned for that QR/code?
+6. What JSON/API response is sent back to the frontend?
+7. What value does the AR frontend actually receive and display?
+8. Check whether company/brand data is hardcoded, cached, stored in global state, using a default value, or incorrectly mapped.
+9. Check whether the database query is actually filtering by the scanned QR/code or accidentally returning the same/first record every time.
+10. Check whether frontend/AR state is being reused between different scans.
+
+Also verify the database records for at least 3 different QR codes and confirm whether each QR code maps to a different company/brand.
+
+After investigating, tell me:
+
+* the exact root cause,
+* the files/functions responsible,
+* the smallest safe fix,
+* and how we can test that 3 different QR codes now return 3 different company/brand results.
+
+Do not fabricate test results. If you cannot access or verify something, tell me exactly what is missing.

@@ -1,0 +1,61 @@
+I need you to debug the existing QR/barcode → database → AR data flow. Do NOT migrate the stack or rewrite the application.
+
+Current stack:
+
+* Frontend: React + Vite + TypeScript
+* Backend: Node.js + Express + TypeScript
+* Database: PostgreSQL
+* ORM: Drizzle
+* API definition: OpenAPI YAML
+* Barcode scanning: browser JavaScript APIs through TypeScript
+
+Problem:
+When we scan different manufacturing products/QR codes, the AR result keeps showing the same company name instead of retrieving the correct company/brand information for the scanned product.
+
+We tested 2–3 different products/projects and got the same company result. We also manually entered the QR/code, and the result was still incorrect.
+
+Please trace the COMPLETE data flow in the existing code:
+
+QR/barcode scanner
+→ scanned code/value
+→ React state
+→ API request
+→ Express route/controller
+→ Drizzle ORM query
+→ PostgreSQL record
+→ API response
+→ React/AR state
+→ displayed company/brand/product information.
+
+Before changing anything, investigate and report:
+
+1. Which file/function captures the scanned QR/barcode value?
+2. What exact value is extracted from each scan?
+3. Where is that value stored in React state?
+4. Which API endpoint receives the value?
+5. What exact request payload is sent to the backend?
+6. Which Express route/controller handles it?
+7. What exact Drizzle query is executed?
+8. Does the database query actually filter using the scanned QR/code?
+9. Is it accidentally using findFirst(), a default product, hardcoded ID, hardcoded company name, or another fallback?
+10. Check the PostgreSQL records for at least 3 different QR codes and verify their company/brand mappings.
+11. Check the API response returned for each QR code.
+12. Check whether the React/AR frontend actually uses the API response or displays a hardcoded/default/stale value.
+13. Check for React state/cache issues where the previous scanned product remains displayed.
+14. Check whether manual QR/code entry follows the same lookup path as actual barcode scanning.
+15. Check whether the OpenAPI definition and actual Express endpoint agree on the request/response structure.
+
+IMPORTANT:
+Do not assume the OCR is the problem. The current symptom indicates that the issue may be in QR extraction, database lookup, product mapping, API response, or AR/frontend state.
+
+Do not make major changes yet.
+
+First give me:
+
+* Root cause
+* Exact file names and functions involved
+* Evidence from the existing code/database
+* The smallest safe fix
+* A test plan using 3 different QR codes
+
+If database access or test data is unavailable, clearly tell me what you cannot verify instead of guessing.
