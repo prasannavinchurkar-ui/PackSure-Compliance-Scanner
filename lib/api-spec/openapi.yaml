@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: dashboard
+    description: Compliance dashboard aggregates
+  - name: scans
+    description: Packaged commodity scans and inspection history
 paths:
   /healthz:
     get:
@@ -24,6 +28,123 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard compliance summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent inspection activity
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+  /scans:
+    get:
+      operationId: listScans
+      tags: [scans]
+      summary: List scanned products
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [compliant, review, violation, all]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Scanned products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Scan"
+    post:
+      operationId: createScan
+      tags: [scans]
+      summary: Create and analyze a packaged commodity scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanInput"
+      responses:
+        "201":
+          description: Scan analysis created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanDetail"
+  /barcodes/{value}:
+    get:
+      operationId: lookupBarcode
+      tags: [scans]
+      summary: Look up product details by barcode
+      parameters:
+        - name: value
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Barcode lookup result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BarcodeLookup"
+        "400":
+          description: Invalid barcode
+  /scans/{id}:
+    get:
+      operationId: getScan
+      tags: [scans]
+      summary: Get a scan and its findings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Scan analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanDetail"
+        "404":
+          description: Scan not found
 components:
   schemas:
     HealthStatus:
@@ -33,4 +154,181 @@ components:
           type: string
       required:
         - status
+    Declaration:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        value:
+          type: string
+        status:
+          type: string
+          enum: [passed, warning, failed]
+        confidence:
+          type: number
+        requirement:
+          type: string
+      required: [key, label, value, status, confidence, requirement]
+    Finding:
+      type: object
+      properties:
+        id:
+          type: number
+        severity:
+          type: string
+          enum: [critical, major, minor]
+        title:
+          type: string
+        detail:
+          type: string
+        rule:
+          type: string
+        status:
+          type: string
+          enum: [open, resolved]
+      required: [id, severity, title, detail, rule, status]
+    BarcodeProduct:
+      type: object
+      properties:
+        productName:
+          type: ["string", "null"]
+        manufacturer:
+          type: ["string", "null"]
+        netQuantity:
+          type: ["string", "null"]
+        brand:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        source:
+          type: string
+      required: [productName, manufacturer, netQuantity, brand, category, source]
+    BarcodeLookup:
+      type: object
+      properties:
+        rawValue:
+          type: string
+        normalizedValue:
+          type: string
+        format:
+          type: string
+        valid:
+          type: boolean
+        found:
+          type: boolean
+        product:
+          anyOf:
+            - $ref: "#/components/schemas/BarcodeProduct"
+            - type: "null"
+        message:
+          type: string
+      required: [rawValue, normalizedValue, format, valid, found, product, message]
+    Scan:
+      type: object
+      properties:
+        id:
+          type: number
+        productName:
+          type: string
+        brand:
+          type: string
+        manufacturer:
+          type: ["string", "null"]
+        netQuantity:
+          type: ["string", "null"]
+        category:
+          type: string
+        imageName:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [compliant, review, violation]
+        riskScore:
+          type: number
+        issueCount:
+          type: number
+        topIssue:
+          type: ["string", "null"]
+        scannedAt:
+          type: string
+          format: date-time
+        inspector:
+          type: string
+      required: [id, productName, brand, manufacturer, netQuantity, category, imageName, status, riskScore, issueCount, topIssue, scannedAt, inspector]
+    ScanDetail:
+      allOf:
+        - $ref: "#/components/schemas/Scan"
+        - type: object
+          properties:
+            declarations:
+              type: array
+              items:
+                $ref: "#/components/schemas/Declaration"
+            findings:
+              type: array
+              items:
+                $ref: "#/components/schemas/Finding"
+          required: [declarations, findings]
+    ScanInput:
+      type: object
+      properties:
+        productName:
+          type: string
+          minLength: 1
+        brand:
+          type: string
+          minLength: 1
+        manufacturer:
+          type: ["string", "null"]
+        netQuantity:
+          type: ["string", "null"]
+        category:
+          type: string
+          minLength: 1
+        imageName:
+          type: ["string", "null"]
+      required: [productName, brand, category]
+    DashboardSummary:
+      type: object
+      properties:
+        totalScans:
+          type: number
+        compliantCount:
+          type: number
+        reviewCount:
+          type: number
+        violationCount:
+          type: number
+        complianceRate:
+          type: number
+        openFindings:
+          type: number
+        scansToday:
+          type: number
+        trend:
+          type: number
+      required: [totalScans, compliantCount, reviewCount, violationCount, complianceRate, openFindings, scansToday, trend]
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: number
+        type:
+          type: string
+          enum: [scan, finding, report]
+        title:
+          type: string
+        description:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [compliant, review, violation, neutral]
+        scanId:
+          type: ["number", "null"]
+      required: [id, type, title, description, timestamp, status, scanId]
 

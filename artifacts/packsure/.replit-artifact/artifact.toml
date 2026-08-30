@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "PackSure Compliance Scanner"
+description = "A hackathon-ready compliance intelligence dashboard for scanning packaged commodity labels, reviewing Legal Metrology declarations, tracking violations, and exporting inspection reports."
+version = "1.0.0"
+id = "artifacts/packsure"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23063
+
+[services.development]
+run = "pnpm --filter @workspace/packsure run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/packsure", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/packsure/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23063"
+BASE_PATH = "/"

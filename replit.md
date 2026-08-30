@@ -1,6 +1,6 @@
-# [Project name]
+# PackSure Compliance Scanner
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+PackSure helps Indian Legal Metrology inspectors scan packaged commodity labels, review extracted declarations and rule-linked findings, and keep a searchable inspection history.
 
 ## Run & Operate
 
@@ -22,23 +22,34 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/packsure/src/App.tsx` — responsive dashboard, scan intake, history, report detail, and settings UI
+- `artifacts/packsure/src/index.css` — PackSure theme tokens and visual system
+- `lib/api-spec/openapi.yaml` — source of truth for dashboard, activity, scan, and report contracts
+- `artifacts/api-server/src/routes/scans.ts` — scan analysis, seed history, dashboard aggregates, and activity routes
+- `lib/db/src/schema/scans.ts` — PostgreSQL scan repository model
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- API contracts are defined in OpenAPI first and generated into the shared React client and Zod validators.
+- The first build uses a deterministic rule-analysis adapter so the hackathon demo is reliable without claiming production OCR accuracy.
+- Source evidence metadata and structured declarations/findings are stored together per scan for traceable reports.
+- The UI keeps the officer in control: analysis surfaces confidence and rule references, while findings remain explicit review items.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Overview dashboard with compliance rate, decision split, scans today, open findings, compliance pulse, and recent activity.
+- New scan workflow with package image intake, product metadata, deterministic analysis, and navigation to a report.
+- Searchable/filterable inspection repository with status, risk, issue count, and inspection date.
+- Detailed report view with image evidence treatment, declaration confidence, rule references, findings, and text export.
+- Settings surface for inspector preferences, alerts, language, active rule-set, and data handling context.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+No persistent preferences provided.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- The generated validator package in this workspace is Zod 3-compatible; OpenAPI numeric fields should use `number` rather than `integer` to avoid generating unsupported `zod.int()` calls.
 
 ## Pointers
 

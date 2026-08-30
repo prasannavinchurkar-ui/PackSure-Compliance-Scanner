@@ -1,0 +1,2 @@
+- [API contract numeric compatibility](api-contract-numeric-compatibility.md) — use generated `number` fields when this workspace’s Zod version cannot emit `zod.int()`.
+- [Barcode lookup workflow](barcode-lookup-workflow.md) — preserve camera raw values, then enrich through a validated server-side catalog lookup with manual fallback.
