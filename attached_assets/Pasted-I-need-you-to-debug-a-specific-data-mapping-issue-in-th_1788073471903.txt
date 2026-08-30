@@ -1,0 +1,156 @@
+I need you to debug a specific data-mapping issue in the inspection report. Please DO NOT make changes yet.
+
+IMPORTANT CONTEXT:
+
+The Inspection Report is being generated for the correct scanned product/inspection, and the REPORT TITLE / inspection identity is correct.
+
+However, the EXTRACTED DATA INSIDE the Inspection Report is incorrect.
+
+For example, the report may have the correct inspection/product title, but fields such as:
+
+* Company name
+* Brand name
+* Manufacturer/packer/importer
+* Product name
+* Address
+* MRP
+* Net quantity
+* Other extracted label/declaration fields
+
+are showing incorrect, old, default, or data belonging to another product/company.
+
+We have tested multiple different products/QR codes, and the extracted information is still incorrectly showing the same company/details.
+
+So please DO NOT assume that the inspection ID or report title is the problem.
+
+The issue we need to find is:
+
+CORRECT PRODUCT/INSPECTION
+↓
+OCR / extraction result
+↓
+Data normalization/mapping
+↓
+Database/storage
+↓
+Inspection Report data
+↓
+❌ INCORRECT EXTRACTED FIELDS
+
+Please trace this data flow in the existing TypeScript application:
+
+QR/barcode scan
+→ product identification
+→ image/OCR processing
+→ extracted OCR/AI result
+→ structured extracted fields
+→ product/company matching
+→ inspection creation
+→ database storage
+→ Inspection Report API
+→ Inspection Report UI
+
+Please investigate the following carefully:
+
+1. Identify exactly where the OCR/AI extraction result is converted into structured fields such as company, brand, manufacturer, product name, MRP, net quantity, address, etc.
+
+2. Check whether the extracted fields are being correctly mapped to the database fields.
+
+3. Check whether the application is accidentally using:
+
+   * hardcoded company/brand values
+   * default/fallback values
+   * old extracted data
+   * sample/demo data
+   * the first database record
+   * the latest database record
+   * cached React state
+   * previously scanned product data
+
+4. Check the database schema and Drizzle ORM queries responsible for storing and retrieving the extracted fields.
+
+5. Check whether the OCR result itself is incorrect OR whether the OCR result is correct but the application maps it to the wrong company/product.
+
+6. Log/trace one complete example and show:
+   a. QR/code detected
+   b. Raw OCR/AI output
+   c. Structured extraction result
+   d. Company/product ID selected
+   e. Database record stored
+   f. API response returned to Inspection Report
+   g. Data actually displayed in the Inspection Report
+
+7. Compare the extracted data for at least 3 different products/QR codes.
+
+For example:
+
+Product/QR 1
+→ expected Company A
+→ actual extracted Company ?
+
+Product/QR 2
+→ expected Company B
+→ actual extracted Company ?
+
+Product/QR 3
+→ expected Company C
+→ actual extracted Company ?
+
+8. Check whether all three inspections are accidentally receiving the same company/product object.
+
+9. Check the API endpoint used to retrieve the Inspection Report and verify that it returns the extracted data belonging specifically to that inspection.
+
+10. Check whether the frontend report component is displaying the correct API fields or accidentally using another object/property with the same/similar name.
+
+11. Check the report generation code and verify that the displayed extracted fields come from the current inspection's actual extraction result.
+
+12. Check all fallback logic. If extraction fails, the system should NOT silently display another company's information. It should show something like "Not detected" / "Not available" and flag the field for review.
+
+13. Check whether the inspection report title is generated from one data source while the extracted fields are coming from a different data source. If so, identify that mismatch.
+
+14. Check for incorrect joins between:
+
+* inspections
+* products
+* companies/brands
+* QR/barcode values
+* OCR/extraction results
+* compliance results
+
+IMPORTANT:
+Do not modify the QR scanner, OCR engine, database schema, or report UI yet.
+
+First identify the EXACT point where the correct product/inspection starts producing incorrect extracted fields.
+
+I want your response in this format:
+
+### 1. Root Cause
+
+Explain exactly why the extracted information is incorrect.
+
+### 2. Evidence
+
+Show the relevant code/files/functions and the data flow proving the issue.
+
+### 3. Exact Failure Point
+
+Identify the exact point:
+QR → OCR → extraction → mapping → database → API → frontend/report
+
+where the wrong information is introduced.
+
+### 4. Smallest Safe Fix
+
+Explain the minimum code change required. Do not propose a complete rewrite.
+
+### 5. Testing Plan
+
+Test at least 3 different products/QR codes and verify:
+
+QR/Product A → correct extracted Company/Brand/Product
+QR/Product B → correct extracted Company/Brand/Product
+QR/Product C → correct extracted Company/Brand/Product
+
+Also verify that the Inspection Report title AND the extracted fields belong to the same product/inspection.
+
+Do not guess or fabricate results. If you cannot verify something because test data or database access is unavailable, clearly state that.
